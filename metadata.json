@@ -1,6 +1,6 @@
 {
-  "name": "Tea Ordering System",
-  "description": "A boba tea ordering system with consumer and admin interfaces, powered by Firebase.",
+  "name": "茶飲點單系統",
+  "description": "茶飲前台點餐與後台管理系統，資料儲存於 Firebase 資料庫中。",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
