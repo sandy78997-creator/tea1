@@ -1,17 +1,32 @@
 {
   "entities": {
+    "Admin": {
+      "title": "Admin",
+      "description": "Administrator of the system",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email", "createdAt"]
+    },
     "MenuItem": {
       "title": "MenuItem",
-      "description": "Menu items for the tea shop",
+      "description": "A drink on the menu",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "price": { "type": "number" },
         "category": { "type": "string" },
-        "isAvailable": { "type": "boolean" },
-        "imageUrl": { "type": "string" }
+        "priceTeaMilk": { "type": "number" },
+        "priceMilkTea": { "type": "number" },
+        "badges": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
       },
-      "required": ["name", "price", "category", "isAvailable"]
+      "required": ["name", "category", "priceTeaMilk", "priceMilkTea", "badges", "createdAt", "updatedAt"]
     },
     "Order": {
       "title": "Order",
@@ -19,36 +34,46 @@
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "preparing", "completed", "cancelled"] },
-        "items": { "type": "array" },
-        "totalAmount": { "type": "number" },
+        "customerName": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "preparing", "completed", "cancelled"]
+        },
+        "totalPrice": { "type": "number" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "menuItemId": { "type": "string" },
+              "name": { "type": "string" },
+              "variant": { "type": "string" },
+              "price": { "type": "number" },
+              "quantity": { "type": "number" },
+              "ice": { "type": "string" },
+              "sugar": { "type": "string" }
+            },
+            "required": ["menuItemId", "name", "variant", "price", "quantity", "ice", "sugar"]
+          }
+        },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
-      "required": ["userId", "status", "items", "totalAmount", "createdAt", "updatedAt"]
-    },
-    "UserRole": {
-      "title": "UserRole",
-      "description": "Role of the user",
-      "type": "object",
-      "properties": {
-        "role": { "type": "string", "enum": ["admin", "customer"] }
-      },
-      "required": ["role"]
+      "required": ["userId", "customerName", "status", "totalPrice", "items", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
-    "menuItems": {
-      "schema": { "$ref": "#/entities/MenuItem" },
-      "description": "Collection of all available drinks"
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "System administrators"
     },
-    "orders": {
+    "/menuItems/{menuItemId}": {
+      "schema": { "$ref": "#/entities/MenuItem" },
+      "description": "Available drinks on the menu"
+    },
+    "/orders/{orderId}": {
       "schema": { "$ref": "#/entities/Order" },
       "description": "Customer orders"
-    },
-    "userRoles": {
-      "schema": { "$ref": "#/entities/UserRole" },
-      "description": "Roles for users"
     }
   }
 }
