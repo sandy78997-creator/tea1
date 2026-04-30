@@ -1,0 +1,6 @@
+{
+  "name": "Tea Ordering System",
+  "description": "A boba tea ordering system with consumer and admin interfaces, powered by Firebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
