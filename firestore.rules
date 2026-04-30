@@ -6,98 +6,105 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // For this app, I am manually specifying the known admin email.
-      // We also check against the userRoles collection.
-      return request.auth != null && (
-        request.auth.token.email == "sandy78997@gmail.com" || 
-        (exists(/databases/$(database)/documents/userRoles/$(request.auth.uid)) && get(/databases/$(database)/documents/userRoles/$(request.auth.uid)).data.role == 'admin')
-      );
+      return request.auth != null &&
+        request.auth.token.email_verified == true &&
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || 
+         request.auth.token.email == 'sandy78997@gmail.com');
     }
 
     function isSignedIn() {
-      // In this environment, email_verified is not actively used, but we check if request.auth is real.
-      return request.auth != null; 
+      return request.auth != null && request.auth.token.email_verified == true;
     }
 
-    function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
-    function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
-
-    // --- MenuItem Rules ---
-    function isValidMenuItem(data) {
-      return data.keys().hasAll(['name', 'price', 'category', 'isAvailable'])
-        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && data.price is number && data.price >= 0
-        && data.category is string && data.category.size() > 0 && data.category.size() <= 50
-        && data.isAvailable is bool
-        && (data.keys().hasAll(['imageUrl']) ? (data.imageUrl is string && data.imageUrl.size() <= 500) : true)
-        && (data.keys().hasAll(['badges']) ? (data.badges is list && data.badges.size() <= 5) : true)
-        && (data.keys().hasAll(['milkTeaPrice']) ? (data.milkTeaPrice is number && data.milkTeaPrice >= 0) : true);
+    function incoming() {
+      return request.resource.data;
     }
 
-    match /menuItems/{itemId} {
-      allow read: if true; // Publicly readable
-      allow create: if isAdmin() 
-        && isValidId(itemId) 
-        && isValidMenuItem(incoming())
-        && incoming().keys().size() <= 7;
-      allow update: if isAdmin() 
-        && isValidId(itemId)
-        && isValidMenuItem(incoming());
-      allow delete: if isAdmin() && isValidId(itemId);
+    function existing() {
+      return resource.data;
     }
 
-    // --- Order Rules ---
-    function isValidOrder(data) {
-      return data.keys().hasAll(['userId', 'status', 'items', 'totalAmount', 'createdAt', 'updatedAt'])
-        && data.userId is string && data.userId == request.auth.uid
-        && data.status is string && data.status in ['pending', 'preparing', 'completed', 'cancelled']
-        && data.items is list && data.items.size() > 0 && data.items.size() <= 50
-        && data.totalAmount is number && data.totalAmount >= 0
-        && data.createdAt is timestamp
-        && data.updatedAt is timestamp;
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    match /admins/{adminId} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == adminId);
+    }
+
+    match /menuItems/{menuItemId} {
+      function isValidMenuItem(data) {
+        return data.keys().hasAll(['name', 'category', 'priceTeaMilk', 'priceMilkTea', 'badges', 'createdAt', 'updatedAt']) &&
+               data.size() == 7 &&
+               data.name is string && data.name.size() <= 100 &&
+               data.category is string && data.category.size() <= 100 &&
+               data.priceTeaMilk is number && data.priceTeaMilk >= 0 &&
+               data.priceMilkTea is number && data.priceMilkTea >= 0 &&
+               data.badges is list && data.badges.size() <= 10 &&
+               data.createdAt is timestamp &&
+               data.updatedAt is timestamp;
+      }
+
+      allow read: if true;
+      
+      allow create: if isAdmin() &&
+                    isValidId(menuItemId) &&
+                    isValidMenuItem(incoming()) &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time;
+      
+      allow update: if isAdmin() &&
+                    isValidId(menuItemId) &&
+                    isValidMenuItem(incoming()) &&
+                    incoming().updatedAt == request.time &&
+                    incoming().createdAt == existing().createdAt;
+      
+      allow delete: if isAdmin() && isValidId(menuItemId);
     }
 
     match /orders/{orderId} {
-      allow get: if isSignedIn() && isValidId(orderId) && (existing().userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      function isValidOrder(data) {
+        return data.keys().hasAll(['userId', 'customerName', 'status', 'totalPrice', 'items', 'createdAt', 'updatedAt']) &&
+               data.size() == 7 &&
+               data.userId is string && data.userId == request.auth.uid &&
+               data.customerName is string && data.customerName.size() <= 50 &&
+               data.status is string && data.status.matches('^(pending|preparing|completed|cancelled)$') &&
+               data.totalPrice is number && data.totalPrice >= 0 &&
+               data.items is list && data.items.size() <= 50 &&
+               (data.items.size() == 0 || (
+                 data.items[0].keys().hasAll(['menuItemId', 'name', 'variant', 'price', 'quantity', 'ice', 'sugar']) &&
+                 data.items[0].menuItemId is string
+               )) &&
+               data.createdAt is timestamp &&
+               data.updatedAt is timestamp;
+      }
+      
+      allow get: if isValidId(orderId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
 
-      allow create: if isSignedIn() 
-        && isValidId(orderId) 
-        && isValidOrder(incoming()) 
-        && incoming().keys().size() == 6
-        && incoming().status == 'pending'
-        && incoming().createdAt == request.time
-        && incoming().updatedAt == request.time;
+      allow create: if isSignedIn() &&
+                    isValidId(orderId) &&
+                    isValidOrder(incoming()) &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time &&
+                    incoming().status == 'pending';
 
-      allow update: if isSignedIn() 
-        && isValidId(orderId) 
-        && isValidOrder(incoming()) 
-        && incoming().userId == existing().userId
-        && incoming().createdAt == existing().createdAt
-        && incoming().updatedAt == request.time
-        && (
-          isAdmin() || 
-          (
-            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) 
-            && existing().status == 'pending' 
-            && incoming().status == 'cancelled'
-          )
-        );
-
-      allow delete: if false; // Orders cannot be deleted, only cancelled
-    }
-
-    // --- UserRoles Rules ---
-    match /userRoles/{userId} {
-      allow get: if isSignedIn() && isValidId(userId) && (userId == request.auth.uid || isAdmin());
-      allow list: if isAdmin();
-      allow create, update: if isAdmin() 
-        && isValidId(userId)
-        && incoming().keys().hasAll(['role'])
-        && incoming().keys().size() == 1
-        && incoming().role in ['admin', 'customer'];
-      allow delete: if false;
+      allow update: if isValidId(orderId) && (
+        (isAdmin() &&
+         isValidOrder(incoming()) &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         incoming().updatedAt == request.time &&
+         incoming().createdAt == existing().createdAt
+        ) ||
+        (isSignedIn() && existing().userId == request.auth.uid &&
+         isValidOrder(incoming()) &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         existing().status == 'pending' &&
+         incoming().status == 'cancelled' &&
+         incoming().updatedAt == request.time &&
+         incoming().createdAt == existing().createdAt
+        )
+      );
     }
   }
 }
