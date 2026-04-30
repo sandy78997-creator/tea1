@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "Menu items for the tea shop",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "isAvailable": { "type": "boolean" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["name", "price", "category", "isAvailable"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "preparing", "completed", "cancelled"] },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "status", "items", "totalAmount", "createdAt", "updatedAt"]
+    },
+    "UserRole": {
+      "title": "UserRole",
+      "description": "Role of the user",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["admin", "customer"] }
+      },
+      "required": ["role"]
+    }
+  },
+  "firestore": {
+    "menuItems": {
+      "schema": { "$ref": "#/entities/MenuItem" },
+      "description": "Collection of all available drinks"
+    },
+    "orders": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders"
+    },
+    "userRoles": {
+      "schema": { "$ref": "#/entities/UserRole" },
+      "description": "Roles for users"
+    }
+  }
+}
